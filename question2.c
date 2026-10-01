@@ -8,13 +8,13 @@ struct user{
 };
 
 int checkId(int id) {
-    struct user insaan;
+    struct user User;
 
     FILE *fp = fopen("users.txt", "r");
 
-    while (fscanf(fp, "%d %s %d",&insaan.id,insaan.name,&insaan.age) == 3) {
+    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
 
-        if (insaan.id == id) {
+        if (User.id == id) {
             fclose(fp);
             return 1;
         }
@@ -25,25 +25,25 @@ int checkId(int id) {
 }
 
 void create() {
-    struct user insaan;
+    struct user User;
 
     printf("User's ID: ");
-    scanf("%d", &insaan.id);
+    scanf("%d", &User.id);
 
-    if (checkId(insaan.id) == 1) {
+    if (checkId(User.id) == 1) {
         printf("This ID already exist :(\n");
         return;
     }
 
     printf("User's Name (instead of spaces use '_' eg: ram_dua ): ");
-    scanf("%59s", insaan.name);
+    scanf("%59s", User.name);
 
     printf("User's Age: ");
-    scanf("%d", &insaan.age);
+    scanf("%d", &User.age);
 
     FILE *fp = fopen("users.txt", "a");
 
-    fprintf(fp, "%d %s %d\n", insaan.id, insaan.name, insaan.age);
+    fprintf(fp, "%d %s %d\n", User.id, User.name, User.age);
 
     fclose(fp);
 
@@ -51,22 +51,22 @@ void create() {
 }
 
 void read() {
-    struct user insaan;
+    struct user User;
 
     FILE *fp = fopen("users.txt", "r");
 
     printf("\n%-10s %-15s %-5s\n", "ID", "Name", "Age");
     printf("\n");
 
-    while (fscanf(fp, "%d %s %d",&insaan.id,insaan.name,&insaan.age) == 3) {
-        printf("%-10d %-15s %-5d\n",insaan.id,insaan.name,insaan.age);
+    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
+        printf("%-10d %-15s %-5d\n",User.id,User.name,User.age);
     }
 
     fclose(fp);
 }
 
 void delete() {
-    struct user insaan;
+    struct user User;
     int id;
 
     printf("User's ID to be delete: ");
@@ -92,13 +92,13 @@ void delete() {
         return;
     }
 
-    while (fscanf(fp, "%d %s %d",&insaan.id,insaan.name,&insaan.age) == 3) {
+    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
 
-        if (insaan.id == id) {
+        if (User.id == id) {
             continue;
         }
 
-        fprintf(temp, "%d %s %d\n",insaan.id,insaan.name,insaan.age);
+        fprintf(temp, "%d %s %d\n",User.id,User.name,User.age);
     }
 
     fclose(fp);
@@ -111,7 +111,7 @@ void delete() {
 }
 
 void update() {
-    struct user insaan;
+    struct user User;
     int id;
     char newName[60];
     int newAge;
@@ -145,13 +145,13 @@ void update() {
         return;
     }
 
-    while (fscanf(fp, "%d %s %d",&insaan.id,insaan.name,&insaan.age) == 3) {
+    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
 
-        if (insaan.id == id) {
-            fprintf(temp, "%d %s %d\n",insaan.id,newName,newAge);
+        if (User.id == id) {
+            fprintf(temp, "%d %s %d\n",User.id,newName,newAge);
         }
         else {
-            fprintf(temp, "%d %s %d\n",insaan.id,insaan.name,insaan.age);
+            fprintf(temp, "%d %s %d\n",User.id,User.name,User.age);
         }
     }
 
