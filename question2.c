@@ -1,20 +1,32 @@
 #include <stdio.h>
 #include <string.h>
 
-struct user{
+struct user {
     int id;
     char name[60];
     int age;
 };
 
+void replaceSpaces(char *text) {
+    for (int i = 0; text[i] != '\0'; i++) {
+        if (text[i] == ' ') {
+            text[i] = '_';
+        }
+    }
+}
+
 int checkId(int id) {
-    struct user User;
+    struct user user;
 
     FILE *fp = fopen("users.txt", "r");
 
-    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
+    if (fp == NULL) {
+        printf("Error: Unable to open file.\n");
+        return 0;
+    }
 
-        if (User.id == id) {
+    while (fscanf(fp, "%d %59s %d", &user.id, user.name, &user.age) == 3) {
+        if (user.id == id) {
             fclose(fp);
             return 1;
         }
@@ -24,56 +36,67 @@ int checkId(int id) {
     return 0;
 }
 
-void create() {
-    struct user User;
+void createUser() {
+    struct user user;
 
     printf("User's ID: ");
-    scanf("%d", &User.id);
+    scanf("%d", &user.id);
 
-    if (checkId(User.id) == 1) {
-        printf("This ID already exist :(\n");
+    if (checkId(user.id) == 1) {
+        printf("This ID already exists.\n");
         return;
     }
 
-    printf("User's Name (instead of spaces use '_' eg: ram_dua ): ");
-    scanf("%59s", User.name);
+    printf("User's Name: ");
+    scanf(" %59[^\n]", user.name);
+    replaceSpaces(user.name);
 
     printf("User's Age: ");
-    scanf("%d", &User.age);
+    scanf("%d", &user.age);
 
     FILE *fp = fopen("users.txt", "a");
 
-    fprintf(fp, "%d %s %d\n", User.id, User.name, User.age);
+    if (fp == NULL) {
+        printf("Error: Unable to open file.\n");
+        return;
+    }
+
+    fprintf(fp, "%d %s %d\n", user.id, user.name, user.age);
 
     fclose(fp);
 
-    printf("User created successfully :)\n");
+    printf("User created successfully.\n");
 }
 
-void read() {
-    struct user User;
+void readUsers() {
+    struct user user;
 
     FILE *fp = fopen("users.txt", "r");
+
+    if (fp == NULL) {
+        printf("Error: Unable to open file.\n");
+        return;
+    }
 
     printf("\n%-10s %-15s %-5s\n", "ID", "Name", "Age");
     printf("\n");
 
-    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
-        printf("%-10d %-15s %-5d\n",User.id,User.name,User.age);
+    while (fscanf(fp, "%d %59s %d", &user.id, user.name, &user.age) == 3) {
+        printf("%-10d %-15s %-5d\n", user.id, user.name, user.age);
     }
 
     fclose(fp);
 }
 
-void delete() {
-    struct user User;
+void deleteUser() {
+    struct user user;
     int id;
 
-    printf("User's ID to be delete: ");
+    printf("User's ID to delete: ");
     scanf("%d", &id);
 
     if (checkId(id) == 0) {
-        printf("ID does not exist :(\n");
+        printf("ID does not exist.\n");
         return;
     }
 
@@ -81,7 +104,7 @@ void delete() {
     FILE *temp = fopen("temp.txt", "w");
 
     if (fp == NULL || temp == NULL) {
-        printf("Pls try again File didn't responded :(\n");
+        printf("Error: Unable to open file.\n");
 
         if (fp != NULL)
             fclose(fp);
@@ -92,13 +115,12 @@ void delete() {
         return;
     }
 
-    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
-
-        if (User.id == id) {
+    while (fscanf(fp, "%d %59s %d", &user.id, user.name, &user.age) == 3) {
+        if (user.id == id) {
             continue;
         }
 
-        fprintf(temp, "%d %s %d\n",User.id,User.name,User.age);
+        fprintf(temp, "%d %s %d\n", user.id, user.name, user.age);
     }
 
     fclose(fp);
@@ -107,25 +129,26 @@ void delete() {
     remove("users.txt");
     rename("temp.txt", "users.txt");
 
-    printf("User deleted successfully :)\n");
+    printf("User deleted successfully.\n");
 }
 
-void update() {
-    struct user User;
+void updateUser() {
+    struct user user;
     int id;
     char newName[60];
     int newAge;
 
-    printf("User ID to update: ");
+    printf("User's ID to update: ");
     scanf("%d", &id);
 
     if (checkId(id) == 0) {
-        printf("ID does not exist :(\n");
+        printf("ID does not exist.\n");
         return;
     }
 
-    printf("Enter new name (instead of spaces use '_' eg: ram_dua ): ");
-    scanf("%59s", newName);
+    printf("Enter new name: ");
+    scanf(" %59[^\n]", newName);
+    replaceSpaces(newName);
 
     printf("Enter new age: ");
     scanf("%d", &newAge);
@@ -134,7 +157,7 @@ void update() {
     FILE *temp = fopen("temp.txt", "w");
 
     if (fp == NULL || temp == NULL) {
-        printf("File open nahi hui\n");
+        printf("Error: Unable to open file.\n");
 
         if (fp != NULL)
             fclose(fp);
@@ -145,13 +168,11 @@ void update() {
         return;
     }
 
-    while (fscanf(fp, "%d %s %d",&User.id,User.name,&User.age) == 3) {
-
-        if (User.id == id) {
-            fprintf(temp, "%d %s %d\n",User.id,newName,newAge);
-        }
-        else {
-            fprintf(temp, "%d %s %d\n",User.id,User.name,User.age);
+    while (fscanf(fp, "%d %59s %d", &user.id, user.name, &user.age) == 3) {
+        if (user.id == id) {
+            fprintf(temp, "%d %s %d\n", user.id, newName, newAge);
+        } else {
+            fprintf(temp, "%d %s %d\n", user.id, user.name, user.age);
         }
     }
 
@@ -161,42 +182,55 @@ void update() {
     remove("users.txt");
     rename("temp.txt", "users.txt");
 
-    printf("Update successful :)\n");
+    printf("User updated successfully.\n");
 }
 
-int main(){
+int main() {
     FILE *fp = fopen("users.txt", "a");
+
+    if (fp == NULL) {
+        printf("Error: Unable to open file.\n");
+        return 1;
+    }
+
     fclose(fp);
+
     int choice;
-    do{
-        printf("\nPls make a choice :)\n");
+
+    do {
+        printf("\nPlease make a choice:\n");
         printf("1. Add User\n");
         printf("2. Display Users\n");
         printf("3. Update User\n");
         printf("4. Delete User\n");
         printf("5. Exit\n");
         printf("Enter choice: ");
-        scanf("%d", &choice);
 
-        switch(choice){
+        if (scanf("%d", &choice) != 1) {
+            printf("Invalid input, exiting.\n");
+            return 1;
+        }
+
+        switch (choice) {
             case 1:
-                create();
+                createUser();
                 break;
             case 2:
-                read();
+                readUsers();
                 break;
             case 3:
-                update();
+                updateUser();
                 break;
             case 4:
-                delete();
+                deleteUser();
                 break;
             case 5:
-                printf("Bye! Hope to see u sonn :) \n");
+                printf("Goodbye!\n");
                 break;
             default:
-                printf("Invalid choice, try again\n");
+                printf("Invalid choice, try again.\n");
         }
-    } while(choice != 5);
-    
+    } while (choice != 5);
+
+    return 0;
 }
