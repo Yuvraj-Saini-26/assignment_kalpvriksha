@@ -14,8 +14,8 @@ int totalStudents = 0;
 int calculateTotal(int marks[]) {
     int total = 0;
 
-    for (int i = 0; i < SUBJECT; i++) {
-        total += marks[i];
+    for (int subjectNo = 0; subjectNo < SUBJECT; subjectNo++) {
+        total += marks[subjectNo];
     }
 
     return total;
@@ -77,32 +77,32 @@ int main() {
         return 1;
     }
 
-    for (int i = 0; i < totalStudents; i++) {
+    for (int studentNo = 0; studentNo < totalStudents; studentNo++) {
         if (scanf("%d %49s %d %d %d",
-                  &students[i].roll,
-                  students[i].name,
-                  &students[i].marks[0],
-                  &students[i].marks[1],
-                  &students[i].marks[2]) != 5) {
+                  &students[studentNo].roll,
+                  students[studentNo].name,
+                  &students[studentNo].marks[0],
+                  &students[studentNo].marks[1],
+                  &students[studentNo].marks[2]) != 5) {
             printf("Error: Invalid student details.\n");
             return 1;
         }
 
-        for (int j = 0; j < SUBJECT; j++) {
-            if (students[i].marks[j] < 0 || students[i].marks[j] > 100) {
+        for (int subjectNo = 0; subjectNo < SUBJECT; subjectNo++) {
+            if (students[studentNo].marks[subjectNo] < 0 || students[studentNo].marks[subjectNo] > 100) {
                 printf("Error: Marks must be between 0 and 100.\n");
                 return 1;
             }
         }
     }
 
-    for (int i = 0; i < totalStudents; i++) {
-        int total = calculateTotal(students[i].marks);
+    for (int studentNo = 0; studentNo < totalStudents; studentNo++) {
+        int total = calculateTotal(students[studentNo].marks);
         float average = calculateAverage(total);
         char grade = calculateGrade(average);
 
-        printf("Roll: %d\n", students[i].roll);
-        printf("Name: %s\n", students[i].name);
+        printf("Roll: %d\n", students[studentNo].roll);
+        printf("Name: %s\n", students[studentNo].name);
         printf("Total: %d\n", total);
         printf("Average: %.2f\n", average);
         printf("Grade: %c\n", grade);
@@ -113,7 +113,7 @@ int main() {
 
         printf("Performance: ");
 
-        for (int j = 0; j < starCount(grade); j++) {
+        for (int starNo = 0; starNo < starCount(grade); starNo++) {
             printf("*");
         }
 
