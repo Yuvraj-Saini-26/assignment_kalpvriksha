@@ -1,89 +1,124 @@
 #include <stdio.h>
+#include <string.h>
 
 #define MIN_TICKETS 1
 #define MAX_TICKETS 20
+#define MAX_NAME_LENGTH 49
 #define CATEGORY_COUNT 3
 #define DISCOUNT_MIN_TICKETS 5
-#define DISCOUNT_PERCENT 10
+#define DISCOUNT_PERCENT 10.0
+#define PERCENT_BASE 100.0
+#define STANDARD_PRICE 150.0
+#define PREMIUM_PRICE 250.0
+#define RECLINER_PRICE 400.0
 
-const float STANDARD_PRICE = 150.0f;
-const float PREMIUM_PRICE = 250.0f;
-const float RECLINER_PRICE = 400.0f;
+enum TicketCategory {
+    STANDARD = 1,
+    PREMIUM = 2,
+    RECLINER = 3
+};
 
-float getTicketPrice(int categoryChoice) {
+struct Category {
+    const char *name;
+    double price;
+};
+
+struct Category getCategory(int categoryChoice) {
+    struct Category category;
+
     switch (categoryChoice) {
-        case 1:
-            return STANDARD_PRICE;
-        case 2:
-            return PREMIUM_PRICE;
+        case STANDARD:
+            category.name = "Standard";
+            category.price = STANDARD_PRICE;
+            break;
+        case PREMIUM:
+            category.name = "Premium";
+            category.price = PREMIUM_PRICE;
+            break;
+        case RECLINER:
+            category.name = "Recliner";
+            category.price = RECLINER_PRICE;
+            break;
         default:
-            return RECLINER_PRICE;
+            category.name = "Invalid";
+            category.price = 0;
+            break;
     }
+
+    return category;
 }
 
-const char *getCategoryName(int categoryChoice) {
-    switch (categoryChoice) {
-        case 1:
-            return "Standard";
-        case 2:
-            return "Premium";
-        default:
-            return "Recliner";
-    }
-}
-
-float calculateDiscount(float subtotal, int ticketCount) {
+double calculateDiscount(double subtotal, int ticketCount) {
     if (ticketCount >= DISCOUNT_MIN_TICKETS) {
-        return subtotal * DISCOUNT_PERCENT / 100;
-    }
-    else {
+        return subtotal * DISCOUNT_PERCENT / PERCENT_BASE;
+    } else {
         return 0;
     }
 }
 
-void showCategories() {
-    printf("\n");
-    printf("Choice   Category     Price per Ticket\n");
-    printf("1        Standard     %.0f\n", STANDARD_PRICE);
-    printf("2        Premium      %.0f\n", PREMIUM_PRICE);
-    printf("3        Recliner     %.0f\n", RECLINER_PRICE);
+void showCategories(void) {
+    printf("%-8s %-12s %s\n", "Choice", "Category", "Price per Ticket");
+
+    for (int categoryChoice = STANDARD; categoryChoice <= CATEGORY_COUNT; categoryChoice++) {
+        struct Category category = getCategory(categoryChoice);
+        printf("%-8d %-12s %.0f\n", categoryChoice, category.name, category.price);
+    }
+
     printf("\n");
 }
 
-int main() {
-    char customerName[50];
+int main(void) {
+    char customerName[MAX_NAME_LENGTH + 2];
     int ticketCount;
     int categoryChoice;
 
-    
+    showCategories();
 
     printf("Enter customer name: ");
-    if (scanf("%49s", customerName) != 1) {
+    if (fgets(customerName, sizeof(customerName), stdin) == NULL) {
         printf("Error: Invalid customer name.\n");
         return 1;
     }
 
-    showCategories();
+    size_t nameLength = strlen(customerName);
+
+    if (nameLength > 0 && customerName[nameLength - 1] == '\n') {
+        customerName[nameLength - 1] = '\0';
+        nameLength--;
+    } else if (nameLength == sizeof(customerName) - 1) {
+        printf("Error: Customer name must be at most %d characters.\n", MAX_NAME_LENGTH);
+        return 1;
+    }
+
+    if (nameLength == 0) {
+        printf("Error: Customer name cannot be empty.\n");
+        return 1;
+    }
 
     printf("Enter number of tickets (%d-%d): ", MIN_TICKETS, MAX_TICKETS);
-    if (scanf("%d", &ticketCount) != 1 || ticketCount < MIN_TICKETS || ticketCount > MAX_TICKETS) {
+    if (scanf("%d", &ticketCount) != 1 ||
+        ticketCount < MIN_TICKETS ||
+        ticketCount > MAX_TICKETS) {
         printf("Error: Number of tickets must be between %d and %d.\n", MIN_TICKETS, MAX_TICKETS);
         return 1;
     }
 
-    printf("Enter ticket category (1-%d): ", CATEGORY_COUNT);
-    if (scanf("%d", &categoryChoice) != 1 || categoryChoice < 1 || categoryChoice > CATEGORY_COUNT) {
-        printf("Error: Ticket category must be 1, 2 or 3.\n");
+    printf("Enter ticket category (%d-%d): ", STANDARD, CATEGORY_COUNT);
+    if (scanf("%d", &categoryChoice) != 1 ||
+        categoryChoice < STANDARD ||
+        categoryChoice > CATEGORY_COUNT) {
+        printf("Error: Ticket category must be between %d and %d.\n", STANDARD, CATEGORY_COUNT);
         return 1;
     }
 
-    float subtotal = getTicketPrice(categoryChoice) * ticketCount;
-    float discount = calculateDiscount(subtotal, ticketCount);
-    float finalBill = subtotal - discount;
+    struct Category category = getCategory(categoryChoice);
+    double subtotal = category.price * ticketCount;
+    double discount = calculateDiscount(subtotal, ticketCount);
+    double finalBill = subtotal - discount;
 
     printf("\n");
     printf("Customer: %s\n", customerName);
-    printf("Ticket Category: %s\n", getCategoryName(categoryChoice));
+    printf("Ticket Category: %s\n", category.name);
     printf("Tickets: %d\n", ticketCount);
     printf("Subtotal: %.2f\n", subtotal);
     printf("Discount: %.2f\n", discount);
