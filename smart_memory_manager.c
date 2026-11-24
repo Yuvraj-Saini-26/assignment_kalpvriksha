@@ -1,67 +1,126 @@
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define MAX_POOL_SIZE 1000000
 #define INITIAL_CAPACITY 4
-#define FIRST_FIT 1
-#define BEST_FIT 2
-#define WORST_FIT 3
 #define FREE_ID -1
 #define NOT_FOUND -1
+#define INPUT_BUFFER_SIZE 64
+
+enum Strategy {
+    FIRST_FIT = 1,
+    BEST_FIT,
+    WORST_FIT
+};
 
 struct Block {
     int start;
     int size;
     int id;
-    int isAllocated;
+    bool isAllocated;
 };
 
-char *memory = NULL;
-struct Block *blocks = NULL;
-int poolSize = 0;
-int blockCount = 0;
-int blockCapacity = 0;
-int nextId = 1;
-int strategy = FIRST_FIT;
+static char *memory = NULL;
+static struct Block *blocks = NULL;
+static int poolSize = 0;
+static int blockCount = 0;
+static int blockCapacity = 0;
+static int nextId = 1;
+static enum Strategy strategy = FIRST_FIT;
 
-int growIfFull(void) {
+static void releaseResources(void) {
+    free(memory);
+    free(blocks);
+    memory = NULL;
+    blocks = NULL;
+}
+
+/*
+ * Reads one line with fgets and parses it with strtol.
+ * Rejects empty input, trailing garbage (e.g. "5abc"), overflow and
+ * values outside [min, max]. At EOF the program exits cleanly.
+ */
+static int readIntInRange(const char *prompt, int min, int max) {
+    char line[INPUT_BUFFER_SIZE];
+
+    while (true) {
+        printf("%s", prompt);
+
+        if (fgets(line, sizeof line, stdin) == NULL) {
+            printf("\nEnd of input. Exiting.\n");
+            releaseResources();
+            exit(0);
+        }
+
+        size_t length = strlen(line);
+        bool hasNewline = length > 0 && line[length - 1] == '\n';
+        bool isTooLong = !hasNewline && length == sizeof line - 1;
+
+        if (isTooLong) {
+            int ch;
+
+            while ((ch = getchar()) != '\n' && ch != EOF);
+        } else {
+            char *end;
+
+            errno = 0;
+            long value = strtol(line, &end, 10);
+
+            if (end != line && errno == 0) {
+                while (isspace((unsigned char)*end)) {
+                    end++;
+                }
+
+                if (*end == '\0' && value >= min && value <= max) {
+                    return (int)value;
+                }
+            }
+        }
+
+        printf("Invalid input!\n");
+    }
+}
+
+static bool growIfFull(void) {
     if (blockCount < blockCapacity) {
-        return 1;
+        return true;
     }
 
     struct Block *newBlocks = realloc(blocks, blockCapacity * 2 * sizeof(struct Block));
 
     if (newBlocks == NULL) {
-        return 0;
+        return false;
     }
 
     blocks = newBlocks;
     blockCapacity = blockCapacity * 2;
-    return 1;
+    return true;
 }
 
-void insertFreeBlock(int position, int start, int size) {
-    for (int blockNo = blockCount; blockNo > position; blockNo--) {
-        blocks[blockNo] = blocks[blockNo - 1];
-    }
+static void insertFreeBlock(int position, int start, int size) {
+    memmove(&blocks[position + 1], &blocks[position],
+            (blockCount - position) * sizeof(struct Block));
 
     blocks[position].start = start;
     blocks[position].size = size;
     blocks[position].id = FREE_ID;
-    blocks[position].isAllocated = 0;
+    blocks[position].isAllocated = false;
     blockCount++;
 }
 
-void removeBlock(int position) {
-    for (int blockNo = position; blockNo < blockCount - 1; blockNo++) {
-        blocks[blockNo] = blocks[blockNo + 1];
-    }
+static void removeBlock(int position) {
+    memmove(&blocks[position], &blocks[position + 1],
+            (blockCount - position - 1) * sizeof(struct Block));
 
     blockCount--;
 }
 
-void mergeFreeBlocks(void) {
+static void mergeFreeBlocks(void) {
     int blockNo = 0;
 
     while (blockNo < blockCount - 1) {
@@ -74,7 +133,7 @@ void mergeFreeBlocks(void) {
     }
 }
 
-int findBlockById(int id) {
+static int findBlockById(int id) {
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
         if (blocks[blockNo].isAllocated && blocks[blockNo].id == id) {
             return blockNo;
@@ -84,7 +143,7 @@ int findBlockById(int id) {
     return NOT_FOUND;
 }
 
-int findFirstFit(int size) {
+static int findFirstFit(int size) {
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
         if (!blocks[blockNo].isAllocated && blocks[blockNo].size >= size) {
             return blockNo;
@@ -94,7 +153,7 @@ int findFirstFit(int size) {
     return NOT_FOUND;
 }
 
-int findBestFit(int size) {
+static int findBestFit(int size) {
     int bestNo = NOT_FOUND;
 
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
@@ -108,7 +167,7 @@ int findBestFit(int size) {
     return bestNo;
 }
 
-int findWorstFit(int size) {
+static int findWorstFit(int size) {
     int worstNo = NOT_FOUND;
 
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
@@ -122,7 +181,7 @@ int findWorstFit(int size) {
     return worstNo;
 }
 
-int findBlock(int size) {
+static int findFreeBlockForStrategy(int size) {
     if (strategy == FIRST_FIT) {
         return findFirstFit(size);
     } else if (strategy == BEST_FIT) {
@@ -132,7 +191,7 @@ int findBlock(int size) {
     return findWorstFit(size);
 }
 
-void allocateAt(int blockNo, int size, int id) {
+static void allocateAt(int blockNo, int size, int id) {
     int remaining = blocks[blockNo].size - size;
 
     if (remaining > 0) {
@@ -141,10 +200,10 @@ void allocateAt(int blockNo, int size, int id) {
 
     blocks[blockNo].size = size;
     blocks[blockNo].id = id;
-    blocks[blockNo].isAllocated = 1;
+    blocks[blockNo].isAllocated = true;
 }
 
-int getTotalFree(void) {
+static int getTotalFree(void) {
     int total = 0;
 
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
@@ -156,7 +215,7 @@ int getTotalFree(void) {
     return total;
 }
 
-int getLargestFree(void) {
+static int getLargestFree(void) {
     int largest = 0;
 
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
@@ -168,7 +227,7 @@ int getLargestFree(void) {
     return largest;
 }
 
-int countBlocks(int isAllocated) {
+static int countBlocksByState(bool isAllocated) {
     int count = 0;
 
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
@@ -180,7 +239,15 @@ int countBlocks(int isAllocated) {
     return count;
 }
 
-void reportFragmentation(int requestedSize) {
+static int countAllocatedBlocks(void) {
+    return countBlocksByState(true);
+}
+
+static int countFreeBlocks(void) {
+    return countBlocksByState(false);
+}
+
+static void reportFragmentation(int requestedSize) {
     int totalFree = getTotalFree();
 
     if (totalFree < requestedSize) {
@@ -200,13 +267,12 @@ void reportFragmentation(int requestedSize) {
     printf("\n");
 }
 
-void changeStrategy(void) {
-    printf("Select allocation strategy (1. First Fit, 2. Best Fit, 3. Worst Fit): ");
+static void changeStrategy(void) {
+    int choice = readIntInRange(
+        "Select allocation strategy (1. First Fit, 2. Best Fit, 3. Worst Fit): ",
+        FIRST_FIT, WORST_FIT);
 
-    while (scanf("%d", &strategy) != 1 || strategy < FIRST_FIT || strategy > WORST_FIT) {
-        printf("Invalid input!\nSelect allocation strategy (1. First Fit, 2. Best Fit, 3. Worst Fit): ");
-        while (getchar() != '\n');
-    }
+    strategy = (enum Strategy)choice;
 
     if (strategy == FIRST_FIT) {
         printf("Strategy set to First Fit.\n");
@@ -217,17 +283,9 @@ void changeStrategy(void) {
     }
 }
 
-void allocateMemory(void) {
-    int size;
-
-    printf("Requested size: ");
-
-    while (scanf("%d", &size) != 1 || size < 1 || size > poolSize) {
-        printf("Invalid input!\nRequested size: ");
-        while (getchar() != '\n');
-    }
-
-    int blockNo = findBlock(size);
+static void allocateMemory(void) {
+    int size = readIntInRange("Requested size: ", 1, poolSize);
+    int blockNo = findFreeBlockForStrategy(size);
 
     if (blockNo == NOT_FOUND) {
         printf("Allocation failed: no contiguous free block is large enough.\n");
@@ -235,7 +293,9 @@ void allocateMemory(void) {
         return;
     }
 
-    if (!growIfFull()) {
+    bool needsSplit = blocks[blockNo].size > size;
+
+    if (needsSplit && !growIfFull()) {
         printf("Allocation failed: not enough memory for the block table.\n");
         return;
     }
@@ -249,16 +309,8 @@ void allocateMemory(void) {
     printf("Allocation successful. ID: %d, Start: %d, Size: %d\n", id, blocks[blockNo].start, size);
 }
 
-void releaseMemory(void) {
-    int id;
-
-    printf("Allocation ID: ");
-
-    while (scanf("%d", &id) != 1 || id < 1) {
-        printf("Invalid input!\nAllocation ID: ");
-        while (getchar() != '\n');
-    }
-
+static void releaseMemory(void) {
+    int id = readIntInRange("Allocation ID: ", 1, INT_MAX);
     int blockNo = findBlockById(id);
 
     if (blockNo == NOT_FOUND) {
@@ -266,14 +318,14 @@ void releaseMemory(void) {
         return;
     }
 
-    blocks[blockNo].isAllocated = 0;
+    blocks[blockNo].isAllocated = false;
     blocks[blockNo].id = FREE_ID;
     mergeFreeBlocks();
 
     printf("Allocation released.\n");
 }
 
-int shrinkBlock(int blockNo, int newSize) {
+static bool shrinkBlock(int blockNo, int newSize) {
     int freedBytes = blocks[blockNo].size - newSize;
     int nextNo = blockNo + 1;
 
@@ -282,22 +334,22 @@ int shrinkBlock(int blockNo, int newSize) {
         blocks[nextNo].size += freedBytes;
     } else {
         if (!growIfFull()) {
-            return 0;
+            return false;
         }
 
         insertFreeBlock(nextNo, blocks[blockNo].start + newSize, freedBytes);
     }
 
     blocks[blockNo].size = newSize;
-    return 1;
+    return true;
 }
 
-int expandInPlace(int blockNo, int newSize) {
+static bool expandInPlace(int blockNo, int newSize) {
     int extraBytes = newSize - blocks[blockNo].size;
     int nextNo = blockNo + 1;
 
     if (nextNo >= blockCount || blocks[nextNo].isAllocated || blocks[nextNo].size < extraBytes) {
-        return 0;
+        return false;
     }
 
     blocks[blockNo].size = newSize;
@@ -308,21 +360,26 @@ int expandInPlace(int blockNo, int newSize) {
         removeBlock(nextNo);
     }
 
-    return 1;
+    return true;
 }
 
-int moveBlock(int blockNo, int newSize) {
-    int targetNo = findBlock(newSize);
+static bool moveBlock(int blockNo, int newSize) {
+    int targetNo = findFreeBlockForStrategy(newSize);
 
-    if (targetNo == NOT_FOUND || !growIfFull()) {
-        return 0;
+    if (targetNo == NOT_FOUND) {
+        return false;
+    }
+
+    bool willSplit = blocks[targetNo].size > newSize;
+
+    if (willSplit && !growIfFull()) {
+        return false;
     }
 
     int oldStart = blocks[blockNo].start;
     int oldSize = blocks[blockNo].size;
     int id = blocks[blockNo].id;
     int newStart = blocks[targetNo].start;
-    int willSplit = blocks[targetNo].size > newSize;
 
     allocateAt(targetNo, newSize, id);
 
@@ -332,23 +389,14 @@ int moveBlock(int blockNo, int newSize) {
 
     memmove(memory + newStart, memory + oldStart, oldSize);
 
-    blocks[blockNo].isAllocated = 0;
+    blocks[blockNo].isAllocated = false;
     blocks[blockNo].id = FREE_ID;
-    return 1;
+    return true;
 }
 
-void resizeAllocation(void) {
-    int id;
-    int newSize;
-    int isResized;
-
-    printf("Allocation ID: ");
-
-    while (scanf("%d", &id) != 1 || id < 1) {
-        printf("Invalid input!\nAllocation ID: ");
-        while (getchar() != '\n');
-    }
-
+static void resizeAllocation(void) {
+    bool isResized;
+    int id = readIntInRange("Allocation ID: ", 1, INT_MAX);
     int blockNo = findBlockById(id);
 
     if (blockNo == NOT_FOUND) {
@@ -356,12 +404,7 @@ void resizeAllocation(void) {
         return;
     }
 
-    printf("New size: ");
-
-    while (scanf("%d", &newSize) != 1 || newSize < 1 || newSize > poolSize) {
-        printf("Invalid input!\nNew size: ");
-        while (getchar() != '\n');
-    }
+    int newSize = readIntInRange("New size: ", 1, poolSize);
 
     if (newSize == blocks[blockNo].size) {
         printf("Allocation size is unchanged.\n");
@@ -386,7 +429,7 @@ void resizeAllocation(void) {
     printf("Resize successful. ID: %d, Start: %d, Size: %d\n", id, blocks[resizedNo].start, blocks[resizedNo].size);
 }
 
-void displayMemoryMap(void) {
+static void displayMemoryMap(void) {
     printf("Memory Map (%d bytes):\n", poolSize);
 
     for (int blockNo = 0; blockNo < blockCount; blockNo++) {
@@ -398,18 +441,18 @@ void displayMemoryMap(void) {
     }
 }
 
-void displayStatistics(void) {
+static void displayStatistics(void) {
     int totalFree = getTotalFree();
 
     printf("Total memory: %d bytes\n", poolSize);
     printf("Allocated: %d bytes\n", poolSize - totalFree);
     printf("Free: %d bytes\n", totalFree);
-    printf("Allocated blocks: %d\n", countBlocks(1));
-    printf("Free blocks: %d\n", countBlocks(0));
+    printf("Allocated blocks: %d\n", countAllocatedBlocks());
+    printf("Free blocks: %d\n", countFreeBlocks());
     printf("Largest free block: %d bytes\n", getLargestFree());
 }
 
-void showMenu(void) {
+static void showMenu(void) {
     printf("\nMenu:\n");
     printf("1. Allocate memory\n");
     printf("2. Release memory\n");
@@ -421,14 +464,9 @@ void showMenu(void) {
 }
 
 int main(void) {
-    int choice = 0;
+    int choice;
 
-    printf("Enter memory pool size: ");
-
-    while (scanf("%d", &poolSize) != 1 || poolSize < 1 || poolSize > MAX_POOL_SIZE) {
-        printf("Invalid input!\nEnter memory pool size: ");
-        while (getchar() != '\n');
-    }
+    poolSize = readIntInRange("Enter memory pool size: ", 1, MAX_POOL_SIZE);
 
     memory = malloc(poolSize);
 
@@ -441,7 +479,7 @@ int main(void) {
 
     if (blocks == NULL) {
         printf("Error: Failed to allocate the block table.\n");
-        free(memory);
+        releaseResources();
         return 1;
     }
 
@@ -450,20 +488,13 @@ int main(void) {
     blocks[0].start = 0;
     blocks[0].size = poolSize;
     blocks[0].id = FREE_ID;
-    blocks[0].isAllocated = 0;
+    blocks[0].isAllocated = false;
 
     changeStrategy();
-    showMenu();
 
     do {
-        printf("\nChoice: ");
-
-        if (scanf("%d", &choice) != 1) {
-            printf("Invalid input!\n");
-            while (getchar() != '\n');
-            choice = 0;
-            continue;
-        }
+        showMenu();
+        choice = readIntInRange("\nChoice: ", 1, 7);
 
         switch (choice) {
             case 1:
@@ -487,12 +518,9 @@ int main(void) {
             case 7:
                 printf("Goodbye!\n");
                 break;
-            default:
-                printf("Invalid choice! Enter a number from 1 to 7.\n");
         }
     } while (choice != 7);
 
-    free(memory);
-    free(blocks);
+    releaseResources();
     return 0;
 }
